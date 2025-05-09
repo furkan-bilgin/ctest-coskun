@@ -66,13 +66,12 @@ function render_form_from_file(int $passage_id, string $filepath): void
         $input_name = 'passage[' . $passage_id . '][' . $input_counter . ']';
         $input_counter++;
 
-        $transformed_content = str_replace(
-            '[' . $word . ']',
-            '<div class="d-inline-flex justify-content-center align-items-center mb-2">' .
-                $placeholder_text . '<input class="mb-0 passage-input" class="passage-input" type="text" name="' . htmlspecialchars($input_name) . '" />'
-                . '</div>',
-            $transformed_content
-        );
+        $pattern = '/\[' . preg_quote($word, '/') . '\]/';
+        $replacement_html = '<div class="d-inline-flex justify-content-center align-items-center mb-2">' .
+            $placeholder_text . '<input class="mb-0 passage-input" type="text" name="' . htmlspecialchars($input_name) . '" />' .
+            '</div>';
+
+        $transformed_content = preg_replace($pattern, $replacement_html, $transformed_content, 1);
     }
 ?>
     <?= $transformed_content ?>

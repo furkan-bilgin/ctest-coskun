@@ -169,9 +169,6 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
         $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
         if ($current_page === 1) { ?>
             <h4>Hoş Geldiniz!</h4>
-            <script>
-                localStorage.clear();
-            </script>
             <form method="post" action="?page=2" class="mt-4">
                 <input type="hidden" name="data" />
                 <label for="participant_name">Adınız (opsiyonel)</label>
@@ -198,12 +195,25 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 Kelime tamamlama için birden fazla seçenek mümkün olabilir bu nedenle doğru ya da yanlış
                 cevap olmadığını aklınızda bulundurunuz. Katılımınız için teşekkürler.
             </p>
+            <p>
+                <strong>ÖNEMLİ NOT:<strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
+            </p>
             <form method="post" action="?page=3&test=0">
                 <input type="hidden" name="data" />
+                <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
                 <button class="w-100">Sonraki</button>
             </form>
             <?php } else if ($current_page === 3) {
             $passage_id = intval($_GET['test']);
+            require_once("captcha.php");
+            if (!isset($_SESSION['turnstile_verified'])) {
+                // Check if the captcha is verified
+                if (!checkTurnstile()) {
+                    die("Captcha doğrulanamadı.");
+                    exit;
+                }
+                $_SESSION['turnstile_verified'] = true;
+            }
 
             // If we run out of passages, it means the test is over
             if (!isset($passages[$passage_id])) {
@@ -213,7 +223,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     die("Geçersiz veri.");
                     exit;
                 }
-                if (!isset($_SESSION['end_time'])) {
+                if (false && !isset($_SESSION['end_time'])) {
                     die("Test süresi doldu.");
                     exit;
                 }
@@ -304,13 +314,13 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 <hr>
                 <p>Cevaplarınız kaydedildi. Bize zaman ayırdığınız için teşekkür ederiz.</p>
                 <script>
-                    localStorage.setItem("done", "true");
+                    localStorage.setItem('done', 'true');
                 </script>
             <?php
             } else {
                 if (!isset($_SESSION['poll_filled_in'])) {
                     // Redirect to the first page
-                    header("Location: /");
+                    header("Location: /ctest/");
                     exit;
                 }
             ?>
@@ -337,6 +347,11 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
     </main>
     <script>
         (() => {
+            const currentPage = "<?= $current_page ?>";
+            if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
+                return;
+            }
+
             const form = document.querySelector('form');
             let timeLeftInSeconds = 0;
             if (!form)
@@ -360,7 +375,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                             alert('Formu boş bırakmayın.');
                             return;
                         }
-                        form.action = '?page=<?= $current_page ?>&test=<?= $passage_id + 1 ?>';
+                        form.action = '?page=' + currentPage + '&test=<?= $passage_id + 1 ?>';
                     }
                 <?php }  ?>
                 // Save form data to local storage
@@ -382,7 +397,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
                 if (timeLeftInSeconds <= 0) {
                     clearInterval(interval);
-                    form.action = '?test=-1';
+                    form.action = '?page=' + currentPage + '&test=-1';
                     // Emit submit event
                     form.dispatchEvent(new Event('submit'));
                     return;
@@ -395,6 +410,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             updateTimeLeft();
         })();
     </script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 
 </html>
