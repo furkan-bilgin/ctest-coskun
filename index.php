@@ -36,7 +36,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
         }
     </style>
     <?php
-    // Read all files in "passages" directory, get all that end with ".txt"
+    // Load the passages in
     $passages = [];
     foreach (scandir("passages") as $file) {
         if (substr($file, -4) == ".txt") {
@@ -44,121 +44,8 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
         }
     }
 
-
-    $poll_questions = [
-        'poll_gender' => [
-            'question' => 'Cinsiyet',
-            'options' => [
-                'male' => 'Erkek',
-                'female' => 'Kadın',
-                'other' => 'Diğer'
-            ]
-        ],
-        'poll_education' => [
-            'question' => 'Eğitim seviyeniz',
-            'options' => [
-                'university' => 'Üniversite',
-                'high_school' => 'Lise',
-                'middle_school' => 'Ortaokul',
-                'primary_school' => 'İlkokul',
-            ]
-        ],
-        'poll_country' => [
-            'question' => 'Ülke',
-            'options' => [
-                'turkey' => 'Türkiye',
-                'germany' => 'Almanya',
-                'france' => 'Fransa',
-                'italy' => 'İtalya',
-                'spain' => 'İspanya',
-                'uk' => 'Birleşik Krallık',
-                'austria' => 'Avusturya',
-                'belgium' => 'Belçika',
-                'denmark' => 'Danimarka',
-                'finland' => 'Finlandiya',
-                'greece' => 'Yunanistan',
-            ]
-        ],
-        'poll_tr_frequency' => [
-            'question' => 'Ne sıklıkla Türkçe konuşuyorsunuz?',
-            'options' => [
-                'never' => 'Asla',
-                'rarely' => 'Nadiren',
-                'sometimes' => 'Bazen',
-                'often' => 'Sık Sık',
-                'always' => 'Her Zaman',
-            ]
-        ],
-        'poll_language_at_home' => [
-            'question' => 'Evde en çok hangi dili konuşuyorsunuz?',
-            'options' => [
-                'german' => 'Almanca',
-                'turkish' => 'Türkçe',
-                'other' => 'Diğer',
-            ]
-        ],
-        'poll_language_with_family' => [
-            'question' => 'Ailenizle en çok hangi dili konuşuyorsunuz?',
-            'options' => [
-                'only_german' => 'Sadece Almanca',
-                'mostly_german' => 'Çoğu zaman Almanca',
-                'equal' => 'Eşit',
-                'mostly_turkish' => 'Çoğu zaman Türkçe',
-                'only_turkish' => 'Sadece Türkçe',
-            ]
-        ],
-        'poll_importance_of_turkish' => [
-            'question' => 'Türkçenizi unutmamak, dilinizi korumak sizin için önemli mi?',
-            'options' => [
-                'not_important' => 'Önemsiz',
-                'less_important' => 'Az önemli',
-                'somewhat_important' => 'Biraz önemli',
-                'important' => 'Önemli',
-                'very_important' => 'Çok önemli',
-            ]
-        ],
-        'poll_friend_nationality' => [
-            'question' => 'Arkadaşlarınız genel olarak Türk mü yoksa Avusturya/Almanyalı mı?',
-            'options' => [
-                'only_foreign' => 'Sadece Avusturyalı/Almanyalı',
-                'mostly_foreign' => 'Çoğunlukla Avusturyalı/Almanyalı',
-                'equal' => 'Eşit',
-                'mostly_native' => 'Çoğunlukla Türk',
-                'only_native' => 'Sadece Türk',
-            ]
-        ],
-        'poll_turkish_media' => [
-            'question' => 'Türkçe şarkı/podcast/film/radyo dinliyor musunuz?',
-            'options' => [
-                'never' => 'Asla',
-                'rarely' => 'Nadiren',
-                'sometimes' => 'Bazen',
-                'often' => 'Sık Sık',
-                'always' => 'Her Zaman',
-            ]
-        ],
-        'poll_turkish_writing' => [
-            'question' => 'Ne sıklıkla Türkçe yazarsınız?',
-            'options' => [
-                'never' => 'Asla',
-                'rarely' => 'Nadiren',
-                'sometimes' => 'Bazen',
-                'often' => 'Sık Sık',
-                'always' => 'Her Zaman',
-            ]
-        ],
-        'poll_turkish_skills' => [
-            'question' => 'Türkçe dil yeterliliğinizi nasıl buluyorsunuz?',
-            'options' => [
-                'quite_bad' => 'Çok kötü',
-                'bad' => 'Kötü',
-                'enough' => 'Yeterli',
-                'good' => 'İyi',
-                'quite_good' => 'Çok iyi',
-            ]
-        ],
-    ];
-
+    $poll_questions = require "poll_questions.php";
+    $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
     ?>
 </head>
 
@@ -166,8 +53,8 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
     <main class="container">
         <h1>C-Test</h1>
         <?php
-        $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
-        if ($current_page === 1) { ?>
+        if ($current_page === 1) { // Polling page 
+        ?>
             <h4>Hoş Geldiniz!</h4>
             <form method="post" action="?page=2" class="mt-4">
                 <input type="hidden" name="data" />
@@ -184,7 +71,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 <?php } ?>
                 <button class="w-100">Başla</button>
             </form>
-        <?php } else if ($current_page === 2) {
+        <?php } else if ($current_page === 2) { // Information page
             $_SESSION['poll_filled_in'] = true;
         ?>
             <h4>Bilgilendirme</h4>
@@ -203,7 +90,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
                 <button class="w-100">Sonraki</button>
             </form>
-            <?php } else if ($current_page === 3) {
+            <?php } else if ($current_page === 3) { // Test page
             $passage_id = intval($_GET['test']);
             require_once("captcha.php");
             if (!isset($_SESSION['turnstile_verified'])) {
@@ -223,7 +110,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     die("Geçersiz veri.");
                     exit;
                 }
-                if (false && !isset($_SESSION['end_time'])) {
+                if (!isset($_SESSION['end_time'])) {
                     die("Test süresi doldu.");
                     exit;
                 }
@@ -233,6 +120,17 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 $results_file_exists = file_exists(RESULTS_FILE);
                 $results_file = fopen(RESULTS_FILE, 'a');
 
+                if (!$results_file_exists) {
+                    $user_id = 1;
+                } else {
+                    // User id is the number of lines in the file
+                    $user_id = count(file(RESULTS_FILE));
+                }
+
+                if ($participant_name == null) {
+                    $participant_name = "User " . $user_id;
+                }
+
                 $csv_poll_keys = [];
                 foreach (array_keys($data) as $key) {
                     if (!str_starts_with($key, 'poll'))
@@ -241,24 +139,12 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 }
 
                 $csv_keys = ['participant_id', 'participant_name'] + $csv_poll_keys;
-
-                // Get current line number
-                if (!$results_file_exists) {
-                    $user_id = 1;
-                } else {
-                    $user_id = count(file(RESULTS_FILE));
-                }
-
-                if ($participant_name == null) {
-                    $participant_name = "User " . $user_id;
-                }
-
                 $csv_data = [$user_id, $participant_name];
 
-                $passagesParsed = [];
+                $passages_parsed = [];
                 foreach ($passages as $passage_file) {
                     $extracted_passage = extract_words_from_file($passage_file);
-                    $passagesParsed[] = $extracted_passage;
+                    $passages_parsed[] = $extracted_passage;
                 }
 
                 // Insert poll data
@@ -280,14 +166,14 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
 
                 // Insert passage data
                 $total_input_id = 0;
-                foreach ($passagesParsed as $passage_id => $passage) {
+                foreach ($passages_parsed as $passage_id => $passage) {
                     foreach ($passage as $input_id => $input) {
                         $test_key = 'passage[' . $passage_id . '][' . $input_id . ']';
                         $csv_keys[] = 'passage_' . ($passage_id + 1) . '_input_' . ($input_id + 1);
                         $participant_answer = "";
 
                         if (isset($data[$test_key]) && $data[$test_key] !== '') {
-                            $participant_answer = $passagesParsed[$passage_id][$input_id] . $data[$test_key];
+                            $participant_answer = $passages_parsed[$passage_id][$input_id] . $data[$test_key];
                         }
                         $csv_data[] = $participant_answer;
                         $csv_data_per_user[] = [$user_id, $total_input_id, $participant_answer];
@@ -296,6 +182,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     }
                 }
 
+                // Add data into results per user
                 $results_per_user_file = fopen(RESULTS_PER_USER_DIR . $user_id . '.csv', 'w');
                 fputcsv($results_per_user_file, $csv_keys_per_user);
                 foreach ($csv_data_per_user as $row) {
@@ -308,6 +195,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     fputcsv($results_file, $csv_keys);
                 fputcsv($results_file, $csv_data);
                 fclose($results_file);
+
                 session_destroy();
             ?>
                 <h4>Teşekkürler!</h4>
@@ -382,8 +270,8 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
                 passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
                 localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
-                // Submit the form
-                // Change form data to local storage
+
+                // Submit the form, using the data from local storage
                 document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
                 form.submit();
             });
@@ -395,6 +283,8 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     return;
                 const timeLeftValue = parseInt(timeLeft.dataset.timeLeft);
                 timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
+
+                // Time is up, submit 
                 if (timeLeftInSeconds <= 0) {
                     clearInterval(interval);
                     form.action = '?page=' + currentPage + '&test=-1';
@@ -402,6 +292,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     form.dispatchEvent(new Event('submit'));
                     return;
                 }
+
                 const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
                 const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
                 timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
