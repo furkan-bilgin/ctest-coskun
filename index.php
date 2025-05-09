@@ -209,7 +209,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             if (!isset($_SESSION['turnstile_verified'])) {
                 // Check if the captcha is verified
                 if (!checkTurnstile()) {
-                    die("Captcha doğrulanamadı.");
+                    die("Captcha doğrulanamadı!");
                     exit;
                 }
                 $_SESSION['turnstile_verified'] = true;
@@ -308,7 +308,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     fputcsv($results_file, $csv_keys);
                 fputcsv($results_file, $csv_data);
                 fclose($results_file);
-                unset($_SESSION['end_time']);
+                session_destroy();
             ?>
                 <h4>Teşekkürler!</h4>
                 <hr>
