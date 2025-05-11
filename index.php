@@ -14,6 +14,88 @@ if (!function_exists('str_starts_with')) {
     }
 }
 
+// Function to render a single form from a passage
+function render_single_form($passage_id, $passage_file, $current_form) {
+    $extracted_words = extract_words_from_file($passage_file);
+    $total_words = count($extracted_words);
+    
+    if ($current_form >= $total_words) {
+        return false;
+    }
+    
+    // Get the full passage text
+    $passage_text = file_get_contents($passage_file);
+    
+    // Display the progress
+    echo "<div class='progress mb-4'>";
+    echo "<div class='progress-bar' role='progressbar' style='width: " . (($current_form + 1) / $total_words * 100) . "%' ";
+    echo "aria-valuenow='" . ($current_form + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
+    echo ($current_form + 1) . " / " . $total_words;
+    echo "</div></div>";
+    
+    // Get form data from session or localStorage if available
+    echo "<script>
+        const passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+    </script>";
+    
+    $words = preg_split('/\s+/', $passage_text);
+    $word_index = 0;
+    
+    echo "<p>";
+    foreach ($words as $i => $word) {
+        $is_extracted = false;
+        $extracted_index = -1;
+        
+        foreach ($extracted_words as $j => $extracted) {
+            if (strpos($word, $extracted) === 0) {
+                $is_extracted = true;
+                $extracted_index = $j;
+                break;
+            }
+        }
+        
+        if ($is_extracted) {
+            $visible_part = $extracted_words[$extracted_index];
+            $input_name = "passage[" . $passage_id . "][" . $extracted_index . "]";
+            
+            echo "<strong>" . $visible_part . "</strong>";
+            
+            if ($extracted_index < $current_form) {
+                echo "<input class='passage-input' type='text' name='" . $input_name . "' disabled 
+                      onload=\"this.value = passageFormData['" . $input_name . "'] || ''\"
+                      data-input-index='" . $extracted_index . "'>";
+            } 
+            else if ($extracted_index == $current_form) {
+                echo "<input class='passage-input' type='text' name='" . $input_name . "' required
+                      data-input-index='" . $extracted_index . "' autofocus>";
+            }
+            else {
+                echo "<input class='passage-input' type='text' name='" . $input_name . "' disabled
+                      data-input-index='" . $extracted_index . "'>";
+            }
+        } 
+        else {
+            echo $word;
+        }
+        echo " ";
+    }
+    echo "</p>";
+    
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('.passage-input');
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
+                if (passageFormData[name]) {
+                    input.value = passageFormData[name];
+                }
+            });
+        });
+    </script>";
+    
+    return true;
+}
+
 define("RESULTS_FILE", "results/results.csv");
 define("RESULTS_PER_USER_DIR", "results/per_user/");
 ?>
@@ -33,6 +115,23 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             padding: 0.5rem !important;
             width: 5rem !important;
             height: 2rem !important;
+        }
+        
+        .passage-input:disabled {
+            background-color: #f8f9fa;
+            color: #212529;
+            border-color: #ced4da;
+            opacity: 1;
+        }
+        
+        .passage-input:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .active-input {
+            border: 2px solid #0d6efd !important;
+            background-color: #e9f5ff !important;
         }
     </style>
     <?php
@@ -85,13 +184,15 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             <p>
                 <strong>ÖNEMLİ NOT:<strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
             </p>
-            <form method="post" action="?page=3&test=0">
+            <form method="post" action="?page=3&form=0">
                 <input type="hidden" name="data" />
                 <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
                 <button class="w-100">Sonraki</button>
             </form>
-            <?php } else if ($current_page === 3) { // Test page
-            $passage_id = intval($_GET['test']);
+            <?php } else if ($current_page === 3 || $current_page === 4) { // Test pages
+            $passage_id = $current_page - 3;
+            $current_form = isset($_GET['form']) ? intval($_GET['form']) : 0;
+            
             require_once("captcha.php");
             if (!isset($_SESSION['turnstile_verified'])) {
                 // Check if the captcha is verified
@@ -223,12 +324,39 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 <div class="mb-4" data-time-left="<?= $_SESSION['end_time'] - time() ?>"></div>
                 <form method="post">
                     <input type="hidden" name="data" />
-                    <?php render_form_from_file($passage_id, $passages[$passage_id]); ?>
-                    <?php if ($passage_id >= count($passages)) { ?>
-                        <button type="submit" class="w-100 mt-4">Gönder</button>
-                    <?php } else { ?>
-                        <button type="submit" class="w-100 mt-4">İleri</button>
-                    <?php } ?>
+                    
+                    <div class="alert alert-info">
+                        <strong>Bilgi:</strong>
+                        <ul>
+                            <li>Metni tamamen görebilirsiniz ve önceki cevaplarınızı görebilirsiniz</li>
+                            <li>Tamamladığınız kelimelere geri dönüp değiştiremezsiniz</li>
+                            <li>Testi sırayla tamamlamalısınız</li>
+                            <li>Metnin bütününün bağlamı, doğru tamamlamaları belirlemenize yardımcı olur</li>
+                        </ul>
+                    </div>
+                    
+                    <?php 
+                    // Get total number of forms in this passage
+                    $passage_words = extract_words_from_file($passages[$passage_id]);
+                    $total_forms = count($passage_words);
+                    
+                    // Check if we've completed all forms for this passage
+                    if ($current_form >= $total_forms) {
+                        // Move to next passage or end test
+                        $next_page = $passage_id >= count($passages) - 1 ? 5 : ($current_page + 1);
+                        header("Location: ?page=" . $next_page);
+                        exit;
+                    }
+                    
+                    // Show the entire passage with current form active
+                    render_single_form($passage_id, $passages[$passage_id], $current_form);
+                    
+                    // Button text changes based on if this is the last form in the passage
+                    $is_last_form = ($current_form >= $total_forms - 1);
+                    $is_last_passage = ($passage_id >= count($passages) - 1);
+                    $button_text = $is_last_form && $is_last_passage ? "Gönder" : "İleri";
+                    ?>
+                    <button type="submit" class="w-100 mt-4"><?= $button_text ?></button>
                 </form>
         <?php }
         } ?>
@@ -263,7 +391,18 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                             alert('Formu boş bırakmayın.');
                             return;
                         }
-                        form.action = '?page=' + currentPage + '&test=<?= $passage_id + 1 ?>';
+                        const currentForm = <?= isset($current_form) ? $current_form : 0 ?>;
+                        const nextForm = currentForm + 1;
+                        const totalForms = <?= isset($total_forms) ? $total_forms : 0 ?>;
+                        
+                        if (nextForm >= totalForms) {
+                            // Move to next passage or end test
+                            const nextPage = currentPage === "3" ? 4 : (currentPage === "4" ? "final" : currentPage);
+                            form.action = nextPage === "final" ? '?page=5' : '?page=' + nextPage;
+                        } else {
+                            // Move to next form in same passage
+                            form.action = '?page=' + currentPage + '&form=' + nextForm;
+                        }
                     }
                 <?php }  ?>
                 // Save form data to local storage
@@ -287,7 +426,17 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 // Time is up, submit 
                 if (timeLeftInSeconds <= 0) {
                     clearInterval(interval);
-                    form.action = '?page=' + currentPage + '&test=-1';
+                    const currentForm = <?= isset($current_form) ? $current_form : 0 ?>;
+                    const totalForms = <?= isset($total_forms) ? $total_forms : 0 ?>;
+                    
+                    if (currentForm + 1 >= totalForms) {
+                        // Move to next passage or end test
+                        const nextPage = currentPage === "3" ? 4 : (currentPage === "4" ? "final" : currentPage);
+                        form.action = nextPage === "final" ? '?page=5' : '?page=' + nextPage;
+                    } else {
+                        // Move to next form in same passage
+                        form.action = '?page=' + currentPage + '&form=' + (currentForm + 1);
+                    }
                     // Emit submit event
                     form.dispatchEvent(new Event('submit'));
                     return;
