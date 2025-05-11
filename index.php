@@ -15,60 +15,83 @@ if (!function_exists('str_starts_with')) {
 }
 
 // Function to render a single form from a passage
-function render_single_form($passage_id, $passage_file, $form_index) {
+function render_single_form($passage_id, $passage_file, $current_form) {
     $extracted_words = extract_words_from_file($passage_file);
+    $total_words = count($extracted_words);
     
-    if (!isset($extracted_words[$form_index])) {
+    if ($current_form >= $total_words) {
         return false;
     }
     
-    $total_words = count($extracted_words);
-    $word = $extracted_words[$form_index];
-    
-    // If this is the first form, show some context from the beginning of the passage
+    // Get the full passage text
     $passage_text = file_get_contents($passage_file);
+    
+    // Display the progress
+    echo "<div class='progress mb-4'>";
+    echo "<div class='progress-bar' role='progressbar' style='width: " . (($current_form + 1) / $total_words * 100) . "%' ";
+    echo "aria-valuenow='" . ($current_form + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
+    echo ($current_form + 1) . " / " . $total_words;
+    echo "</div></div>";
+    
+    // Get form data from session or localStorage if available
+    echo "<script>
+        const passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+    </script>";
+    
     $words = preg_split('/\s+/', $passage_text);
+    $word_index = 0;
     
-    // Find the position of this word in the passage
-    $position = 0;
-    $found = false;
-    
-    foreach ($words as $i => $w) {
-        if (strpos($w, $word) === 0) {
-            $position = $i;
-            $found = true;
-            break;
-        }
-    }
-    
-    // Display passage with the current word as an input field
     echo "<p>";
-    
-    // Show some words before the current position for context
-    $context_start = max(0, $position - 10);
-    $context_end = min(count($words) - 1, $position + 10);
-    
-    for ($i = $context_start; $i <= $context_end; $i++) {
-        if ($i == $position) {
-            // This is the word to complete
-            $visible_part = $word;
-            $input_name = "passage[" . $passage_id . "][" . $form_index . "]";
-            echo "<strong>" . $visible_part . "</strong>";
-            echo "<input class='passage-input' type='text' name='" . $input_name . "' required>";
-            echo " ";
-        } else {
-            echo $words[$i] . " ";
+    foreach ($words as $i => $word) {
+        $is_extracted = false;
+        $extracted_index = -1;
+        
+        foreach ($extracted_words as $j => $extracted) {
+            if (strpos($word, $extracted) === 0) {
+                $is_extracted = true;
+                $extracted_index = $j;
+                break;
+            }
         }
+        
+        if ($is_extracted) {
+            $visible_part = $extracted_words[$extracted_index];
+            $input_name = "passage[" . $passage_id . "][" . $extracted_index . "]";
+            
+            echo "<strong>" . $visible_part . "</strong>";
+            
+            if ($extracted_index < $current_form) {
+                echo "<input class='passage-input' type='text' name='" . $input_name . "' disabled 
+                      onload=\"this.value = passageFormData['" . $input_name . "'] || ''\"
+                      data-input-index='" . $extracted_index . "'>";
+            } 
+            else if ($extracted_index == $current_form) {
+                echo "<input class='passage-input' type='text' name='" . $input_name . "' required
+                      data-input-index='" . $extracted_index . "' autofocus>";
+            }
+            else {
+                echo "<input class='passage-input' type='text' name='" . $input_name . "' disabled
+                      data-input-index='" . $extracted_index . "'>";
+            }
+        } 
+        else {
+            echo $word;
+        }
+        echo " ";
     }
-    
     echo "</p>";
     
-    // Show progress
-    echo "<div class='progress mb-4'>";
-    echo "<div class='progress-bar' role='progressbar' style='width: " . (($form_index + 1) / $total_words * 100) . "%' ";
-    echo "aria-valuenow='" . ($form_index + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
-    echo ($form_index + 1) . " / " . $total_words;
-    echo "</div></div>";
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('.passage-input');
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
+                if (passageFormData[name]) {
+                    input.value = passageFormData[name];
+                }
+            });
+        });
+    </script>";
     
     return true;
 }
@@ -92,6 +115,23 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             padding: 0.5rem !important;
             width: 5rem !important;
             height: 2rem !important;
+        }
+        
+        .passage-input:disabled {
+            background-color: #f8f9fa;
+            color: #212529;
+            border-color: #ced4da;
+            opacity: 1;
+        }
+        
+        .passage-input:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .active-input {
+            border: 2px solid #0d6efd !important;
+            background-color: #e9f5ff !important;
         }
     </style>
     <?php
@@ -284,6 +324,17 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 <div class="mb-4" data-time-left="<?= $_SESSION['end_time'] - time() ?>"></div>
                 <form method="post">
                     <input type="hidden" name="data" />
+                    
+                    <div class="alert alert-info">
+                        <strong>Bilgi:</strong>
+                        <ul>
+                            <li>Metni tamamen görebilirsiniz ve önceki cevaplarınızı görebilirsiniz</li>
+                            <li>Tamamladığınız kelimelere geri dönüp değiştiremezsiniz</li>
+                            <li>Testi sırayla tamamlamalısınız</li>
+                            <li>Metnin bütününün bağlamı, doğru tamamlamaları belirlemenize yardımcı olur</li>
+                        </ul>
+                    </div>
+                    
                     <?php 
                     // Get total number of forms in this passage
                     $passage_words = extract_words_from_file($passages[$passage_id]);
@@ -297,7 +348,7 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                         exit;
                     }
                     
-                    // Show only the current form
+                    // Show the entire passage with current form active
                     render_single_form($passage_id, $passages[$passage_id], $current_form);
                     
                     // Button text changes based on if this is the last form in the passage
