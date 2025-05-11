@@ -92,7 +92,7 @@ return [
         ]
     ],
     'poll_turkish_writing' => [
-        'question' => 'Ne sıklıkla Türkçe yazarsınız?',
+        'question' => 'Ne sıklıkla Türkçe yazı yazarsınız?',
         'options' => [
             'never' => 'Asla',
             'rarely' => 'Nadiren',
