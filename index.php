@@ -3,10 +3,12 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 include_once("processor.php");
 
-// Polyfill for str_starts_with for PHP versions below 8.0
 if (!function_exists('str_starts_with')) {
     function str_starts_with($haystack, $needle)
     {
@@ -16,6 +18,86 @@ if (!function_exists('str_starts_with')) {
 
 define("RESULTS_FILE", "results/results.csv");
 define("RESULTS_PER_USER_DIR", "results/per_user/");
+
+function render_single_form($passage_id, $passage_file, $current_form) {
+    $extracted_words = extract_words_from_file($passage_file);
+    $total_words = count($extracted_words);
+    
+    if ($current_form >= $total_words) {
+        return false;
+    }
+    
+    $passage_text = file_get_contents($passage_file);
+    
+    echo "<div class='progress mb-4'>";
+    echo "<div class='progress-bar' role='progressbar' style='width: " . (($current_form + 1) / $total_words * 100) . "%' ";
+    echo "aria-valuenow='" . ($current_form + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
+    echo ($current_form + 1) . " / " . $total_words;
+    echo "</div></div>";
+    
+    $words = preg_split('/\s+/', $passage_text);
+    
+    echo "<p>";
+    foreach ($words as $i => $word) {
+        $is_extracted = false;
+        $extracted_index = -1;
+        
+        foreach ($extracted_words as $j => $extracted) {
+            if (strpos($word, $extracted) === 0) {
+                $is_extracted = true;
+                $extracted_index = $j;
+                break;
+            }
+        }
+        
+        if ($is_extracted) {
+            $visible_part = $extracted_words[$extracted_index];
+            $input_name = "passage[" . $passage_id . "][" . $extracted_index . "]";
+            $input_id = "passage_" . $passage_id . "_" . $extracted_index;
+            
+            echo "<strong>" . $visible_part . "</strong>";
+            
+            if ($extracted_index < $current_form) {
+                echo "<input id='" . $input_id . "' class='passage-input' type='text' name='" . $input_name . "' disabled 
+                      data-input-index='" . $extracted_index . "'>";
+            } 
+            else if ($extracted_index == $current_form) {
+                echo "<input id='" . $input_id . "' class='passage-input active-input' type='text' name='" . $input_name . "' required
+                      data-input-index='" . $extracted_index . "' autofocus>";
+            }
+            else {
+                echo "<input id='" . $input_id . "' class='passage-input' type='text' name='" . $input_name . "' disabled
+                      data-input-index='" . $extracted_index . "'>";
+            }
+        } 
+        else {
+            echo $word;
+        }
+        echo " ";
+    }
+    echo "</p>";
+    
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+            const inputs = document.querySelectorAll('.passage-input');
+            
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
+                if (passageFormData[name]) {
+                    input.value = passageFormData[name];
+                }
+            });
+            
+            const activeInput = document.querySelector('.active-input');
+            if (activeInput) {
+                activeInput.focus();
+            }
+        });
+    </script>";
+    
+    return true;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,9 +116,25 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             width: 5rem !important;
             height: 2rem !important;
         }
+        
+        .passage-input:disabled {
+            background-color: #f8f9fa;
+            color: #212529;
+            border-color: #ced4da;
+            opacity: 1;
+        }
+        
+        .passage-input:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .active-input {
+            border: 2px solid #0d6efd !important;
+            background-color: #e9f5ff !important;
+        }
     </style>
     <?php
-    // Load the passages in
     $passages = [];
     foreach (scandir("passages") as $file) {
         if (substr($file, -4) == ".txt") {
@@ -85,16 +183,16 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             <p>
                 <strong>ÖNEMLİ NOT:<strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
             </p>
-            <form method="post" action="?page=3&test=0">
+            <form method="post" action="?page=3&form=0">
                 <input type="hidden" name="data" />
-                <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
                 <button class="w-100">Sonraki</button>
             </form>
-            <?php } else if ($current_page === 3) { // Test page
-            $passage_id = intval($_GET['test']);
+            <?php } else if ($current_page === 3 || $current_page === 4) { // Test pages
+            $passage_id = $current_page - 3;
+            $current_form = isset($_GET['form']) ? intval($_GET['form']) : 0;
+            
             require_once("captcha.php");
             if (!isset($_SESSION['turnstile_verified'])) {
-                // Check if the captcha is verified
                 if (!checkTurnstile()) {
                     die("Captcha doğrulanamadı!");
                     exit;
@@ -102,28 +200,21 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 $_SESSION['turnstile_verified'] = true;
             }
 
-            // If we run out of passages, it means the test is over
-            if (!isset($passages[$passage_id])) {
-                // Convert data to json
+            if ($passage_id >= count($passages)) {
                 $data = json_decode($_POST['data'], true);
                 if ($data === null) {
                     die("Geçersiz veri.");
                     exit;
                 }
-                if (!isset($_SESSION['end_time'])) {
-                    die("Test süresi doldu.");
-                    exit;
-                }
+                
                 $participant_name = isset($data['participant_name']) ? $data['participant_name'] : null;
 
-                // Add data to results file
                 $results_file_exists = file_exists(RESULTS_FILE);
                 $results_file = fopen(RESULTS_FILE, 'a');
 
                 if (!$results_file_exists) {
                     $user_id = 1;
                 } else {
-                    // User id is the number of lines in the file
                     $user_id = count(file(RESULTS_FILE));
                 }
 
@@ -147,7 +238,6 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     $passages_parsed[] = $extracted_passage;
                 }
 
-                // Insert poll data
                 foreach ($data as $dataKey => $dataValue) {
                     if (str_starts_with($dataKey, 'poll') && isset($poll_questions[$dataKey])) {
                         $question_id = $dataKey;
@@ -164,7 +254,6 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 $csv_keys_per_user = ['participant_id', 'input_id', 'participant_answer'];
                 $csv_data_per_user = [];
 
-                // Insert passage data
                 $total_input_id = 0;
                 foreach ($passages_parsed as $passage_id => $passage) {
                     foreach ($passage as $input_id => $input) {
@@ -182,7 +271,6 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                     }
                 }
 
-                // Add data into results per user
                 $results_per_user_file = fopen(RESULTS_PER_USER_DIR . $user_id . '.csv', 'w');
                 fputcsv($results_per_user_file, $csv_keys_per_user);
                 foreach ($csv_data_per_user as $row) {
@@ -190,7 +278,6 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 }
                 fclose($results_per_user_file);
 
-                // Add data into results
                 if (!$results_file_exists)
                     fputcsv($results_file, $csv_keys);
                 fputcsv($results_file, $csv_data);
@@ -207,7 +294,6 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
             <?php
             } else {
                 if (!isset($_SESSION['poll_filled_in'])) {
-                    // Redirect to the first page
                     header("Location: /ctest/");
                     exit;
                 }
@@ -215,93 +301,185 @@ define("RESULTS_PER_USER_DIR", "results/per_user/");
                 <h4>Metin <?= $passage_id + 1 ?></h4>
                 <hr>
                 <?php
-                if (!isset($_SESSION['end_time'])) {
-                    $_SESSION['end_time'] = time() + 7 * 60;
-                }
+                // Always reset timer for testing
+                $_SESSION['end_time'] = time() + 7 * 60;
+                error_log("Timer set to: " . $_SESSION['end_time'] . " (now: " . time() . ")");
+                
                 $passage = file_get_contents($passages[$passage_id]);
                 ?>
                 <div class="mb-4" data-time-left="<?= $_SESSION['end_time'] - time() ?>"></div>
                 <form method="post">
                     <input type="hidden" name="data" />
-                    <?php render_form_from_file($passage_id, $passages[$passage_id]); ?>
-                    <?php if ($passage_id >= count($passages)) { ?>
-                        <button type="submit" class="w-100 mt-4">Gönder</button>
-                    <?php } else { ?>
-                        <button type="submit" class="w-100 mt-4">İleri</button>
-                    <?php } ?>
+                    
+                    <div class="alert alert-info">
+                        <strong>Bilgi:</strong>
+                        <ul>
+                            <li>Metni tamamen görebilirsiniz ve önceki cevaplarınızı görebilirsiniz</li>
+                            <li>Tamamladığınız kelimelere geri dönüp değiştiremezsiniz</li>
+                            <li>Testi sırayla tamamlamalısınız</li>
+                            <li>Metnin bütününün bağlamı, doğru tamamlamaları belirlemenize yardımcı olur</li>
+                        </ul>
+                    </div>
+                    
+                    <?php 
+                    $passage_words = extract_words_from_file($passages[$passage_id]);
+                    $total_forms = count($passage_words);
+                    
+                    if ($current_form >= $total_forms) {
+                        $next_page = $passage_id >= count($passages) - 1 ? 5 : ($current_page + 1);
+                        header("Location: ?page=" . $next_page);
+                        exit;
+                    }
+                    
+                    render_single_form($passage_id, $passages[$passage_id], $current_form);
+                    
+                    $is_last_form = ($current_form >= $total_forms - 1);
+                    $is_last_passage = ($passage_id >= count($passages) - 1);
+                    $button_text = $is_last_form && $is_last_passage ? "Gönder" : "İleri";
+                    ?>
+                    <button type="submit" class="w-100 mt-4"><?= $button_text ?></button>
                 </form>
         <?php }
         } ?>
     </main>
     <script>
-        (() => {
-            const currentPage = "<?= $current_page ?>";
-            if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
-                return;
-            }
+   (() => {
+       const currentPage = "<?= $current_page ?>";
+       if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
+           return;
+       }
 
-            const form = document.querySelector('form');
-            let timeLeftInSeconds = 0;
-            if (!form)
-                return;
-            form.addEventListener('submit', function(event) {
-                event.preventDefault();
-                const data = new FormData(form);
-                // Alert if no form data is submitted
-                let isAllEmpty = true;
-                for (const [key, value] of data.entries()) {
-                    if (!key.startsWith('passage'))
-                        continue;
-                    if (value !== '') {
-                        isAllEmpty = false;
-                        break;
-                    }
-                }
-                <?php if (isset($passage_id)) { ?>
-                    if (timeLeftInSeconds > 0) {
-                        if (isAllEmpty) {
-                            alert('Formu boş bırakmayın.');
-                            return;
-                        }
-                        form.action = '?page=' + currentPage + '&test=<?= $passage_id + 1 ?>';
-                    }
-                <?php }  ?>
-                // Save form data to local storage
-                let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
-                passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
-                localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
+       const form = document.querySelector('form');
+       let timeLeftInSeconds = 0;
+       if (!form)
+           return;
+           
+       form.addEventListener('submit', function(event) {
+           event.preventDefault();
+           const data = new FormData(form);
+           
+           // For page 1 and 2, just submit the form normally
+           if (currentPage === "1" || currentPage === "2") {
+               let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+               passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
+               localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
+               
+               if (currentPage === "1") {
+                   form.action = "?page=2";
+               } else {
+                   form.action = "?page=3&form=0";
+               }
+               
+               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+               form.submit();
+               return;
+           }
+           
+           const activeInput = document.querySelector('.active-input');
+           if (!activeInput) {
+               const nextPage = currentPage === "3" ? 4 : 5;
+               form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+               form.submit();
+               return;
+           }
+           
+           const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
+           const allInputs = Array.from(document.querySelectorAll('.passage-input'));
+           const sortedInputs = allInputs.sort((a, b) => {
+               return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
+           });
+           
+           let nextInputIndex = -1;
+           let foundNextEmpty = false;
+           
+           for (let i = 0; i < sortedInputs.length; i++) {
+               const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
+               if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
+                   nextInputIndex = inputIndex;
+                   foundNextEmpty = true;
+                   break;
+               }
+           }
+           
+           if (activeInput.value === '') {
+               alert('Formu boş bırakmayın.');
+               return;
+           }
+           
+           let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+           passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
+           localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
+           
+           if (foundNextEmpty) {
+               form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+           } else {
+               const nextPage = currentPage === "3" ? 4 : 5;
+               form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+           }
+           
+           document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+           form.submit();
+       });
+       
+       const startDate = new Date();
 
-                // Submit the form, using the data from local storage
-                document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
-                form.submit();
-            });
-            const startDate = new Date();
+       function updateTimeLeft() {
+           const timeLeft = document.querySelector('div[data-time-left]');
+           if (!timeLeft)
+               return;
+           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft) || 420; // Default to 7 minutes if not set
+           console.log("Time left value: " + timeLeftValue);
+           timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
 
-            function updateTimeLeft() {
-                const timeLeft = document.querySelector('div[data-time-left]');
-                if (!timeLeft)
-                    return;
-                const timeLeftValue = parseInt(timeLeft.dataset.timeLeft);
-                timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
+           if (timeLeftInSeconds <= 0) {
+               clearInterval(interval);
+               
+               const activeInput = document.querySelector('.active-input');
+               if (!activeInput) {
+                   const nextPage = currentPage === "3" ? 4 : 5;
+                   form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                   form.dispatchEvent(new Event('submit'));
+                   return;
+               }
+               
+               const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
+               const allInputs = Array.from(document.querySelectorAll('.passage-input'));
+               const sortedInputs = allInputs.sort((a, b) => {
+                   return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
+               });
+               
+               let nextInputIndex = -1;
+               let foundNextEmpty = false;
+               
+               for (let i = 0; i < sortedInputs.length; i++) {
+                   const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
+                   if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
+                       nextInputIndex = inputIndex;
+                       foundNextEmpty = true;
+                       break;
+                   }
+               }
+               
+               if (foundNextEmpty) {
+                   form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+               } else {
+                   const nextPage = currentPage === "3" ? 4 : 5;
+                   form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+               }
+               
+               form.dispatchEvent(new Event('submit'));
+               return;
+           }
 
-                // Time is up, submit 
-                if (timeLeftInSeconds <= 0) {
-                    clearInterval(interval);
-                    form.action = '?page=' + currentPage + '&test=-1';
-                    // Emit submit event
-                    form.dispatchEvent(new Event('submit'));
-                    return;
-                }
-
-                const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
-                const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
-                timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
-            }
-            const interval = setInterval(updateTimeLeft, 250);
-            updateTimeLeft();
-        })();
-    </script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+           const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
+           const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
+           timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
+       }
+       const interval = setInterval(updateTimeLeft, 250);
+       updateTimeLeft();
+   })();
+</script>
 </body>
 
 </html>
