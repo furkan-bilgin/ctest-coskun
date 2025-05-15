@@ -3,6 +3,9 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 include_once("processor.php");
 
@@ -182,7 +185,6 @@ function render_single_form($passage_id, $passage_file, $current_form) {
             </p>
             <form method="post" action="?page=3&form=0">
                 <input type="hidden" name="data" />
-                <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
                 <button class="w-100">Sonraki</button>
             </form>
             <?php } else if ($current_page === 3 || $current_page === 4) { // Test pages
@@ -198,16 +200,13 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 $_SESSION['turnstile_verified'] = true;
             }
 
-            if (!isset($passages[$passage_id])) {
+            if ($passage_id >= count($passages)) {
                 $data = json_decode($_POST['data'], true);
                 if ($data === null) {
                     die("Geçersiz veri.");
                     exit;
                 }
-                if (!isset($_SESSION['end_time'])) {
-                    die("Test süresi doldu.");
-                    exit;
-                }
+                
                 $participant_name = isset($data['participant_name']) ? $data['participant_name'] : null;
 
                 $results_file_exists = file_exists(RESULTS_FILE);
@@ -302,9 +301,10 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 <h4>Metin <?= $passage_id + 1 ?></h4>
                 <hr>
                 <?php
-                if (!isset($_SESSION['end_time'])) {
-                    $_SESSION['end_time'] = time() + 7 * 60;
-                }
+                // Always reset timer for testing
+                $_SESSION['end_time'] = time() + 7 * 60;
+                error_log("Timer set to: " . $_SESSION['end_time'] . " (now: " . time() . ")");
+                
                 $passage = file_get_contents($passages[$passage_id]);
                 ?>
                 <div class="mb-4" data-time-left="<?= $_SESSION['end_time'] - time() ?>"></div>
@@ -428,7 +428,8 @@ function render_single_form($passage_id, $passage_file, $current_form) {
            const timeLeft = document.querySelector('div[data-time-left]');
            if (!timeLeft)
                return;
-           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft);
+           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft) || 420; // Default to 7 minutes if not set
+           console.log("Time left value: " + timeLeftValue);
            timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
 
            if (timeLeftInSeconds <= 0) {
@@ -479,7 +480,6 @@ function render_single_form($passage_id, $passage_file, $current_form) {
        updateTimeLeft();
    })();
 </script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 
 </html>
