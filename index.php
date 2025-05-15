@@ -18,30 +18,32 @@ if (!function_exists('str_starts_with')) {
 
 define("RESULTS_FILE", "results/results.csv");
 define("RESULTS_PER_USER_DIR", "results/per_user/");
+define("CAPTCHA_ENABLED", true);
 
-function render_single_form($passage_id, $passage_file, $current_form) {
+function render_single_form($passage_id, $passage_file, $current_form)
+{
     $extracted_words = extract_words_from_file($passage_file);
     $total_words = count($extracted_words);
-    
+
     if ($current_form >= $total_words) {
         return false;
     }
-    
+
     $passage_text = file_get_contents($passage_file);
-    
+
     echo "<div class='progress mb-4'>";
     echo "<div class='progress-bar' role='progressbar' style='width: " . (($current_form + 1) / $total_words * 100) . "%' ";
     echo "aria-valuenow='" . ($current_form + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
     echo ($current_form + 1) . " / " . $total_words;
     echo "</div></div>";
-    
+
     $words = preg_split('/\s+/', $passage_text);
-    
+
     echo "<p>";
     foreach ($words as $i => $word) {
         $is_extracted = false;
         $extracted_index = -1;
-        
+
         foreach ($extracted_words as $j => $extracted) {
             if (strpos($word, $extracted) === 0) {
                 $is_extracted = true;
@@ -49,34 +51,31 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 break;
             }
         }
-        
+
         if ($is_extracted) {
             $visible_part = $extracted_words[$extracted_index];
             $input_name = "passage[" . $passage_id . "][" . $extracted_index . "]";
             $input_id = "passage_" . $passage_id . "_" . $extracted_index;
-            
+
             echo "<strong>" . $visible_part . "</strong>";
-            
+
             if ($extracted_index < $current_form) {
                 echo "<input id='" . $input_id . "' class='passage-input' type='text' name='" . $input_name . "' disabled 
                       data-input-index='" . $extracted_index . "'>";
-            } 
-            else if ($extracted_index == $current_form) {
+            } else if ($extracted_index == $current_form) {
                 echo "<input id='" . $input_id . "' class='passage-input active-input' type='text' name='" . $input_name . "' required
                       data-input-index='" . $extracted_index . "' autofocus>";
-            }
-            else {
+            } else {
                 echo "<input id='" . $input_id . "' class='passage-input' type='text' name='" . $input_name . "' disabled
                       data-input-index='" . $extracted_index . "'>";
             }
-        } 
-        else {
+        } else {
             echo $word;
         }
         echo " ";
     }
     echo "</p>";
-    
+
     echo "<script>
         document.addEventListener('DOMContentLoaded', function() {
             const passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
@@ -95,7 +94,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
             }
         });
     </script>";
-    
+
     return true;
 }
 ?>
@@ -116,19 +115,19 @@ function render_single_form($passage_id, $passage_file, $current_form) {
             width: 5rem !important;
             height: 2rem !important;
         }
-        
+
         .passage-input:disabled {
             background-color: #f8f9fa;
             color: #212529;
             border-color: #ced4da;
             opacity: 1;
         }
-        
+
         .passage-input:focus {
             border-color: #86b7fe;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
-        
+
         .active-input {
             border: 2px solid #0d6efd !important;
             background-color: #e9f5ff !important;
@@ -184,15 +183,18 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 <strong>ÖNEMLİ NOT:<strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
             </p>
             <form method="post" action="?page=3&form=0">
+                <?php if (CAPTCHA_ENABLED) { ?>
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
+                <?php } ?>
                 <input type="hidden" name="data" />
                 <button class="w-100">Sonraki</button>
             </form>
             <?php } else if ($current_page === 3 || $current_page === 4) { // Test pages
             $passage_id = $current_page - 3;
             $current_form = isset($_GET['form']) ? intval($_GET['form']) : 0;
-            
+
             require_once("captcha.php");
-            if (!isset($_SESSION['turnstile_verified'])) {
+            if (!isset($_SESSION['turnstile_verified']) && CAPTCHA_ENABLED) {
                 if (!checkTurnstile()) {
                     die("Captcha doğrulanamadı!");
                     exit;
@@ -206,7 +208,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                     die("Geçersiz veri.");
                     exit;
                 }
-                
+
                 $participant_name = isset($data['participant_name']) ? $data['participant_name'] : null;
 
                 $results_file_exists = file_exists(RESULTS_FILE);
@@ -304,13 +306,13 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 // Always reset timer for testing
                 $_SESSION['end_time'] = time() + 7 * 60;
                 error_log("Timer set to: " . $_SESSION['end_time'] . " (now: " . time() . ")");
-                
+
                 $passage = file_get_contents($passages[$passage_id]);
                 ?>
                 <div class="mb-4" data-time-left="<?= $_SESSION['end_time'] - time() ?>"></div>
                 <form method="post">
                     <input type="hidden" name="data" />
-                    
+
                     <div class="alert alert-info">
                         <strong>Bilgi:</strong>
                         <ul>
@@ -320,19 +322,19 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                             <li>Metnin bütününün bağlamı, doğru tamamlamaları belirlemenize yardımcı olur</li>
                         </ul>
                     </div>
-                    
-                    <?php 
+
+                    <?php
                     $passage_words = extract_words_from_file($passages[$passage_id]);
                     $total_forms = count($passage_words);
-                    
+
                     if ($current_form >= $total_forms) {
                         $next_page = $passage_id >= count($passages) - 1 ? 5 : ($current_page + 1);
                         header("Location: ?page=" . $next_page);
                         exit;
                     }
-                    
+
                     render_single_form($passage_id, $passages[$passage_id], $current_form);
-                    
+
                     $is_last_form = ($current_form >= $total_forms - 1);
                     $is_last_passage = ($passage_id >= count($passages) - 1);
                     $button_text = $is_last_form && $is_last_passage ? "Gönder" : "İleri";
@@ -342,144 +344,145 @@ function render_single_form($passage_id, $passage_file, $current_form) {
         <?php }
         } ?>
     </main>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
-   (() => {
-       const currentPage = "<?= $current_page ?>";
-       if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
-           return;
-       }
+        (() => {
+            const currentPage = "<?= $current_page ?>";
+            if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
+                return;
+            }
 
-       const form = document.querySelector('form');
-       let timeLeftInSeconds = 0;
-       if (!form)
-           return;
-           
-       form.addEventListener('submit', function(event) {
-           event.preventDefault();
-           const data = new FormData(form);
-           
-           // For page 1 and 2, just submit the form normally
-           if (currentPage === "1" || currentPage === "2") {
-               let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
-               passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
-               localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
-               
-               if (currentPage === "1") {
-                   form.action = "?page=2";
-               } else {
-                   form.action = "?page=3&form=0";
-               }
-               
-               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
-               form.submit();
-               return;
-           }
-           
-           const activeInput = document.querySelector('.active-input');
-           if (!activeInput) {
-               const nextPage = currentPage === "3" ? 4 : 5;
-               form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
-               form.submit();
-               return;
-           }
-           
-           const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
-           const allInputs = Array.from(document.querySelectorAll('.passage-input'));
-           const sortedInputs = allInputs.sort((a, b) => {
-               return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
-           });
-           
-           let nextInputIndex = -1;
-           let foundNextEmpty = false;
-           
-           for (let i = 0; i < sortedInputs.length; i++) {
-               const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
-               if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
-                   nextInputIndex = inputIndex;
-                   foundNextEmpty = true;
-                   break;
-               }
-           }
-           
-           if (activeInput.value === '') {
-               alert('Formu boş bırakmayın.');
-               return;
-           }
-           
-           let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
-           passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
-           localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
-           
-           if (foundNextEmpty) {
-               form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
-           } else {
-               const nextPage = currentPage === "3" ? 4 : 5;
-               form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-           }
-           
-           document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
-           form.submit();
-       });
-       
-       const startDate = new Date();
+            const form = document.querySelector('form');
+            let timeLeftInSeconds = 0;
+            if (!form)
+                return;
 
-       function updateTimeLeft() {
-           const timeLeft = document.querySelector('div[data-time-left]');
-           if (!timeLeft)
-               return;
-           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft) || 420; // Default to 7 minutes if not set
-           console.log("Time left value: " + timeLeftValue);
-           timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const data = new FormData(form);
 
-           if (timeLeftInSeconds <= 0) {
-               clearInterval(interval);
-               
-               const activeInput = document.querySelector('.active-input');
-               if (!activeInput) {
-                   const nextPage = currentPage === "3" ? 4 : 5;
-                   form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-                   form.dispatchEvent(new Event('submit'));
-                   return;
-               }
-               
-               const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
-               const allInputs = Array.from(document.querySelectorAll('.passage-input'));
-               const sortedInputs = allInputs.sort((a, b) => {
-                   return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
-               });
-               
-               let nextInputIndex = -1;
-               let foundNextEmpty = false;
-               
-               for (let i = 0; i < sortedInputs.length; i++) {
-                   const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
-                   if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
-                       nextInputIndex = inputIndex;
-                       foundNextEmpty = true;
-                       break;
-                   }
-               }
-               
-               if (foundNextEmpty) {
-                   form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
-               } else {
-                   const nextPage = currentPage === "3" ? 4 : 5;
-                   form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-               }
-               
-               form.dispatchEvent(new Event('submit'));
-               return;
-           }
+                // For page 1 and 2, just submit the form normally
+                if (currentPage === "1" || currentPage === "2") {
+                    let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+                    passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
+                    localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
 
-           const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
-           const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
-           timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
-       }
-       const interval = setInterval(updateTimeLeft, 250);
-       updateTimeLeft();
-   })();
-</script>
+                    if (currentPage === "1") {
+                        form.action = "?page=2";
+                    } else {
+                        form.action = "?page=3&form=0";
+                    }
+
+                    document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
+                    form.submit();
+                    return;
+                }
+
+                const activeInput = document.querySelector('.active-input');
+                if (!activeInput) {
+                    const nextPage = currentPage === "3" ? 4 : 5;
+                    form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                    document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
+                    form.submit();
+                    return;
+                }
+
+                const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
+                const allInputs = Array.from(document.querySelectorAll('.passage-input'));
+                const sortedInputs = allInputs.sort((a, b) => {
+                    return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
+                });
+
+                let nextInputIndex = -1;
+                let foundNextEmpty = false;
+
+                for (let i = 0; i < sortedInputs.length; i++) {
+                    const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
+                    if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
+                        nextInputIndex = inputIndex;
+                        foundNextEmpty = true;
+                        break;
+                    }
+                }
+
+                if (activeInput.value === '') {
+                    alert('Formu boş bırakmayın.');
+                    return;
+                }
+
+                let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+                passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
+                localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
+
+                if (foundNextEmpty) {
+                    form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+                } else {
+                    const nextPage = currentPage === "3" ? 4 : 5;
+                    form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                }
+
+                document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
+                form.submit();
+            });
+
+            const startDate = new Date();
+
+            function updateTimeLeft() {
+                const timeLeft = document.querySelector('div[data-time-left]');
+                if (!timeLeft)
+                    return;
+                const timeLeftValue = parseInt(timeLeft.dataset.timeLeft) || 420; // Default to 7 minutes if not set
+                console.log("Time left value: " + timeLeftValue);
+                timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
+
+                if (timeLeftInSeconds <= 0) {
+                    clearInterval(interval);
+
+                    const activeInput = document.querySelector('.active-input');
+                    if (!activeInput) {
+                        const nextPage = currentPage === "3" ? 4 : 5;
+                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                        form.dispatchEvent(new Event('submit'));
+                        return;
+                    }
+
+                    const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
+                    const allInputs = Array.from(document.querySelectorAll('.passage-input'));
+                    const sortedInputs = allInputs.sort((a, b) => {
+                        return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
+                    });
+
+                    let nextInputIndex = -1;
+                    let foundNextEmpty = false;
+
+                    for (let i = 0; i < sortedInputs.length; i++) {
+                        const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
+                        if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
+                            nextInputIndex = inputIndex;
+                            foundNextEmpty = true;
+                            break;
+                        }
+                    }
+
+                    if (foundNextEmpty) {
+                        form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+                    } else {
+                        const nextPage = currentPage === "3" ? 4 : 5;
+                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                    }
+
+                    form.dispatchEvent(new Event('submit'));
+                    return;
+                }
+
+                const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
+                const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
+                timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
+            }
+            const interval = setInterval(updateTimeLeft, 250);
+            updateTimeLeft();
+        })();
+    </script>
 </body>
 
 </html>
