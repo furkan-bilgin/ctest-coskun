@@ -18,7 +18,6 @@ if (!function_exists('str_starts_with')) {
 
 define("RESULTS_FILE", "results/results.csv");
 define("RESULTS_PER_USER_DIR", "results/per_user/");
-
 function render_single_form($passage_id, $passage_file, $current_form) {
     $extracted_words = extract_words_from_file($passage_file);
     $total_words = count($extracted_words);
@@ -27,55 +26,31 @@ function render_single_form($passage_id, $passage_file, $current_form) {
         return false;
     }
     
-    $passage_text = file_get_contents($passage_file);
-    
     echo "<div class='progress mb-4'>";
     echo "<div class='progress-bar' role='progressbar' style='width: " . (($current_form + 1) / $total_words * 100) . "%' ";
     echo "aria-valuenow='" . ($current_form + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
     echo ($current_form + 1) . " / " . $total_words;
     echo "</div></div>";
     
-    $words = preg_split('/\s+/', $passage_text);
+    $content = file_get_contents($passage_file);
     
-    echo "<p>";
-    foreach ($words as $i => $word) {
-        $is_extracted = false;
-        $extracted_index = -1;
+    $modified_content = $content;
+    
+    foreach ($extracted_words as $idx => $word) {
+        $pattern = '/\[' . preg_quote($word, '/') . '\]/';
         
-        foreach ($extracted_words as $j => $extracted) {
-            if (strpos($word, $extracted) !== false) {
-                $is_extracted = true;
-                $extracted_index = $j;
-                break;
-            }
+        if ($idx < $current_form) {
+            $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
+        } else if ($idx == $current_form) {
+            $replacement = '<strong>' . $word . '</strong><input class="passage-input active-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
+        } else {
+            $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         }
         
-        if ($is_extracted) {
-            $visible_part = $extracted_words[$extracted_index];
-            $input_name = "passage[" . $passage_id . "][" . $extracted_index . "]";
-            $input_id = "passage_" . $passage_id . "_" . $extracted_index;
-            
-            echo "<strong>" . $visible_part . "</strong>";
-            
-            if ($extracted_index < $current_form) {
-                echo "<input id='" . $input_id . "' class='passage-input' type='text' name='" . $input_name . "' disabled 
-                      data-input-index='" . $extracted_index . "'>";
-            } 
-            else if ($extracted_index == $current_form) {
-                echo "<input id='" . $input_id . "' class='passage-input active-input' type='text' name='" . $input_name . "' required
-                      data-input-index='" . $extracted_index . "' autofocus>";
-            }
-            else {
-                echo "<input id='" . $input_id . "' class='passage-input' type='text' name='" . $input_name . "' disabled
-                      data-input-index='" . $extracted_index . "'>";
-            }
-        } 
-        else {
-            echo $word;
-        }
-        echo " ";
+        $modified_content = preg_replace($pattern, $replacement, $modified_content, 1);
     }
-    echo "</p>";
+    
+    echo $modified_content;
     
     echo "<script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -88,11 +63,6 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                     input.value = passageFormData[name];
                 }
             });
-            
-            const activeInput = document.querySelector('.active-input');
-            if (activeInput) {
-                activeInput.focus();
-            }
         });
     </script>";
     
