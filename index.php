@@ -29,11 +29,11 @@ function render_single_form($passage_id, $passage_file, $current_form)
         return false;
     }
 
-    echo "<div class='progress mb-4'>";
-    echo "<div class='progress-bar' role='progressbar' style='width: " . (($current_form + 1) / $total_words * 100) . "%' ";
-    echo "aria-valuenow='" . ($current_form + 1) . "' aria-valuemin='0' aria-valuemax='" . $total_words . "'>";
+    echo "<strong>";
     echo ($current_form + 1) . " / " . $total_words;
-    echo "</div></div>";
+    echo "</strong>";
+    echo "<progress value='" . ($current_form + 1) . "' max='" . $total_words . "'></progress>";
+    echo "<br>";
 
     $content = file_get_contents($passage_file);
 
@@ -118,9 +118,15 @@ function render_single_form($passage_id, $passage_file, $current_form)
             $passages[] = "passages/" . $file;
         }
     }
+    $correctAnswers = file("correct_answers.txt", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $correctAnswers = array_map('trim', $correctAnswers);
 
     $poll_questions = require "poll_questions.php";
     $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+
+    if (isset($_COOKIE['done']) && $_COOKIE['done'] == 'true') {
+        $current_page = 0;
+    }
     ?>
 </head>
 
@@ -128,7 +134,12 @@ function render_single_form($passage_id, $passage_file, $current_form)
     <main class="container">
         <h1>C-Test</h1>
         <?php
-        if ($current_page === 1) {
+        if ($current_page === 0) {
+        ?>
+            <h4>Teşekkürler!</h4>
+            <p>Testi tamamladınız. Sonuçlarınız kaydedildi.</p>
+        <?php
+        } else if ($current_page === 1) {
             session_destroy();
         ?>
             <script>
@@ -282,7 +293,7 @@ function render_single_form($passage_id, $passage_file, $current_form)
                 }
             }
 
-            $csv_keys_per_user = ['participant_id', 'input_id', 'participant_answer'];
+            $csv_keys_per_user = ['participant_id', 'input_id', 'participant_answer', 'correct_answer'];
             $csv_data_per_user = [];
 
             $total_input_id = 0;
@@ -296,7 +307,7 @@ function render_single_form($passage_id, $passage_file, $current_form)
                         $participant_answer = $passages_parsed[$passage_id][$input_id] . $data[$test_key];
                     }
                     $csv_data[] = $participant_answer;
-                    $csv_data_per_user[] = [$user_id, $total_input_id, $participant_answer];
+                    $csv_data_per_user[] = [$user_id, $total_input_id, $participant_answer, $correctAnswers[$total_input_id]];
 
                     $total_input_id++;
                 }
@@ -315,13 +326,13 @@ function render_single_form($passage_id, $passage_file, $current_form)
             fclose($results_file);
 
             session_destroy();
+            setcookie("done", "true", time() + 60 * 60 * 24 * 30, "/");
         ?>
             <h4>Teşekkürler!</h4>
             <p>Testi tamamladınız. Sonuçlarınız kaydedildi.</p>
-            <p><a href="/">Ana sayfaya dön</a></p>
         <?php } else { ?>
             <h4>Geçersiz sayfa!</h4>
-            <p><a href="/">Ana sayfaya dön</a></p>
+            <p><a href="/ctest/">Ana sayfaya dön</a></p>
         <?php } ?>
     </main>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
