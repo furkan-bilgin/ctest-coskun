@@ -23,7 +23,8 @@ function checkTurnstile()
     $options = array(
         'http' => array(
             'method' => 'POST',
-            'content' => http_build_query($data)
+            'content' => http_build_query($data),
+            'header' => 'Content-type:application/x-www-form-urlencoded'
         )
     );
 
@@ -37,7 +38,6 @@ function checkTurnstile()
 
     $response =  $result;
     $responseKeys = json_decode($response, true);
-
     if (intval($responseKeys["success"]) !== 1) {
         return false;
     }

@@ -18,6 +18,8 @@ if (!function_exists('str_starts_with')) {
 
 define("RESULTS_FILE", "results/results.csv");
 define("RESULTS_PER_USER_DIR", "results/per_user/");
+define("CAPTCHA_ENABLED", true);
+
 function render_single_form($passage_id, $passage_file, $current_form) {
     $extracted_words = extract_words_from_file($passage_file);
     $total_words = count($extracted_words);
@@ -158,6 +160,9 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 <strong>ÖNEMLİ NOT:</strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
             </p>
             <form method="post" action="?page=3&form=0">
+                <?php if (CAPTCHA_ENABLED) { ?>
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAABb38N1cQxxRAHAQ"></div>
+                <?php } ?>
                 <input type="hidden" name="data" />
                 <button class="w-100">Sonraki</button>
             </form>
@@ -166,7 +171,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
             $current_form = isset($_GET['form']) ? intval($_GET['form']) : 0;
             
             require_once("captcha.php");
-            if (!isset($_SESSION['turnstile_verified'])) {
+            if (!isset($_SESSION['turnstile_verified']) && CAPTCHA_ENABLED) {
                 if (!checkTurnstile()) {
                     die("Captcha doğrulanamadı!");
                     exit;
@@ -317,6 +322,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
         <?php }
         } ?>
     </main>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
    (() => {
        const currentPage = "<?= $current_page ?>";
@@ -344,7 +350,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                    form.action = "?page=3&form=0";
                }
                
-               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+               document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
                form.submit();
                return;
            }
@@ -355,7 +361,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
                
                let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
-               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+               document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
                form.submit();
                return;
            }
@@ -394,7 +400,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
            }
            
-           document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+           document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
            form.submit();
        });
        
