@@ -43,7 +43,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
         $extracted_index = -1;
         
         foreach ($extracted_words as $j => $extracted) {
-            if (strpos($word, $extracted) === 0) {
+            if (strpos($word, $extracted) !== false) {
                 $is_extracted = true;
                 $extracted_index = $j;
                 break;
@@ -115,6 +115,9 @@ function render_single_form($passage_id, $passage_file, $current_form) {
             padding: 0.5rem !important;
             width: 5rem !important;
             height: 2rem !important;
+            color: #212529 !important;
+            font-weight: normal !important;
+            background-color: #ffffff !important;
         }
         
         .passage-input:disabled {
@@ -127,11 +130,12 @@ function render_single_form($passage_id, $passage_file, $current_form) {
         .passage-input:focus {
             border-color: #86b7fe;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+            background-color: #ffffff !important;
         }
         
         .active-input {
             border: 2px solid #0d6efd !important;
-            background-color: #e9f5ff !important;
+            background-color: #ffffff !important;
         }
     </style>
     <?php
@@ -151,7 +155,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
     <main class="container">
         <h1>C-Test</h1>
         <?php
-        if ($current_page === 1) { // Polling page 
+        if ($current_page === 1) {
         ?>
             <h4>Hoş Geldiniz!</h4>
             <form method="post" action="?page=2" class="mt-4">
@@ -169,7 +173,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 <?php } ?>
                 <button class="w-100">Başla</button>
             </form>
-        <?php } else if ($current_page === 2) { // Information page
+        <?php } else if ($current_page === 2) {
             $_SESSION['poll_filled_in'] = true;
         ?>
             <h4>Bilgilendirme</h4>
@@ -181,13 +185,13 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 cevap olmadığını aklınızda bulundurunuz. Katılımınız için teşekkürler.
             </p>
             <p>
-                <strong>ÖNEMLİ NOT:<strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
+                <strong>ÖNEMLİ NOT:</strong> Kelimeleri Türkçe karakterle uygun şekilde yazmaya çalışınız . Kelime size göre nasıl yazılıyorsa o şekilde yazınız
             </p>
             <form method="post" action="?page=3&form=0">
                 <input type="hidden" name="data" />
                 <button class="w-100">Sonraki</button>
             </form>
-            <?php } else if ($current_page === 3 || $current_page === 4) { // Test pages
+            <?php } else if ($current_page === 3 || $current_page === 4) {
             $passage_id = $current_page - 3;
             $current_form = isset($_GET['form']) ? intval($_GET['form']) : 0;
             
@@ -301,9 +305,10 @@ function render_single_form($passage_id, $passage_file, $current_form) {
                 <h4>Metin <?= $passage_id + 1 ?></h4>
                 <hr>
                 <?php
-                // Always reset timer for testing
-                $_SESSION['end_time'] = time() + 7 * 60;
-                error_log("Timer set to: " . $_SESSION['end_time'] . " (now: " . time() . ")");
+                if (!isset($_SESSION['end_time'])) {
+                    $_SESSION['end_time'] = time() + 7 * 60;
+                    error_log("Timer set to: " . $_SESSION['end_time'] . " (now: " . time() . ")");
+                }
                 
                 $passage = file_get_contents($passages[$passage_id]);
                 ?>
@@ -357,8 +362,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
        form.addEventListener('submit', function(event) {
            event.preventDefault();
            const data = new FormData(form);
-           
-           // For page 1 and 2, just submit the form normally
+
            if (currentPage === "1" || currentPage === "2") {
                let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
                passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
@@ -379,6 +383,8 @@ function render_single_form($passage_id, $passage_file, $current_form) {
            if (!activeInput) {
                const nextPage = currentPage === "3" ? 4 : 5;
                form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+               
+               let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
                document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
                form.submit();
                return;
@@ -428,8 +434,7 @@ function render_single_form($passage_id, $passage_file, $current_form) {
            const timeLeft = document.querySelector('div[data-time-left]');
            if (!timeLeft)
                return;
-           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft) || 420; // Default to 7 minutes if not set
-           console.log("Time left value: " + timeLeftValue);
+           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft) || 420;
            timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
 
            if (timeLeftInSeconds <= 0) {
