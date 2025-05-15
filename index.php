@@ -246,7 +246,9 @@ function render_single_form($passage_id, $passage_file, $current_form)
             $data = json_decode($_POST['data'], true);
             if ($data === null) {
                 die("Geçersiz veri.");
-                exit;
+            }
+            if (!isset($_SESSION['turnstile_verified']) && CAPTCHA_ENABLED) {
+                die("Captcha doğrulanamadı!");
             }
 
             $participant_name = isset($data['participant_name']) ? $data['participant_name'] : null;
