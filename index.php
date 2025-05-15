@@ -343,127 +343,142 @@ function render_single_form($passage_id, $passage_file, $current_form) {
         } ?>
     </main>
     <script>
-        (() => {
-            const currentPage = "<?= $current_page ?>";
-            if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
-                return;
-            }
+   (() => {
+       const currentPage = "<?= $current_page ?>";
+       if (localStorage.getItem('done') === 'true' && currentPage !== '3') {
+           return;
+       }
 
-            const form = document.querySelector('form');
-            let timeLeftInSeconds = 0;
-            if (!form)
-                return;
-                
-            form.addEventListener('submit', function(event) {
-                event.preventDefault();
-                const data = new FormData(form);
-                
-                const activeInput = document.querySelector('.active-input');
-                if (!activeInput) {
-                    console.error('No active input found');
-                    return;
-                }
-                
-                const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
-                const allInputs = Array.from(document.querySelectorAll('.passage-input'));
-                const sortedInputs = allInputs.sort((a, b) => {
-                    return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
-                });
-                
-                let nextInputIndex = -1;
-                let foundNextEmpty = false;
-                
-                for (let i = 0; i < sortedInputs.length; i++) {
-                    const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
-                    if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
-                        nextInputIndex = inputIndex;
-                        foundNextEmpty = true;
-                        break;
-                    }
-                }
-                
-                if (activeInput.value === '') {
-                    alert('Formu boş bırakmayın.');
-                    return;
-                }
-                
-                let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
-                passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
-                localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
-                
-                const currentPage = "<?= $current_page ?>";
-                
-                if (foundNextEmpty) {
-                    form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
-                } else {
-                    const nextPage = currentPage === "3" ? 4 : 5;
-                    form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-                }
-                
-                document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
-                form.submit();
-            });
-            
-            const startDate = new Date();
+       const form = document.querySelector('form');
+       let timeLeftInSeconds = 0;
+       if (!form)
+           return;
+           
+       form.addEventListener('submit', function(event) {
+           event.preventDefault();
+           const data = new FormData(form);
+           
+           // For page 1 and 2, just submit the form normally
+           if (currentPage === "1" || currentPage === "2") {
+               let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+               passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
+               localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
+               
+               if (currentPage === "1") {
+                   form.action = "?page=2";
+               } else {
+                   form.action = "?page=3&form=0";
+               }
+               
+               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+               form.submit();
+               return;
+           }
+           
+           const activeInput = document.querySelector('.active-input');
+           if (!activeInput) {
+               const nextPage = currentPage === "3" ? 4 : 5;
+               form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+               document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+               form.submit();
+               return;
+           }
+           
+           const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
+           const allInputs = Array.from(document.querySelectorAll('.passage-input'));
+           const sortedInputs = allInputs.sort((a, b) => {
+               return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
+           });
+           
+           let nextInputIndex = -1;
+           let foundNextEmpty = false;
+           
+           for (let i = 0; i < sortedInputs.length; i++) {
+               const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
+               if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
+                   nextInputIndex = inputIndex;
+                   foundNextEmpty = true;
+                   break;
+               }
+           }
+           
+           if (activeInput.value === '') {
+               alert('Formu boş bırakmayın.');
+               return;
+           }
+           
+           let passageFormData = JSON.parse(localStorage.getItem('passageFormData') || '{}');
+           passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
+           localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
+           
+           if (foundNextEmpty) {
+               form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+           } else {
+               const nextPage = currentPage === "3" ? 4 : 5;
+               form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+           }
+           
+           document.querySelector('input[type="hidden"]').value = JSON.stringify(passageFormData);
+           form.submit();
+       });
+       
+       const startDate = new Date();
 
-            function updateTimeLeft() {
-                const timeLeft = document.querySelector('div[data-time-left]');
-                if (!timeLeft)
-                    return;
-                const timeLeftValue = parseInt(timeLeft.dataset.timeLeft);
-                timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
+       function updateTimeLeft() {
+           const timeLeft = document.querySelector('div[data-time-left]');
+           if (!timeLeft)
+               return;
+           const timeLeftValue = parseInt(timeLeft.dataset.timeLeft);
+           timeLeftInSeconds = timeLeftValue - ((new Date().getTime()) - (startDate.getTime())) / 1000;
 
-                if (timeLeftInSeconds <= 0) {
-                    clearInterval(interval);
-                    
-                    const activeInput = document.querySelector('.active-input');
-                    if (!activeInput) {
-                        const currentPage = "<?= $current_page ?>";
-                        const nextPage = currentPage === "3" ? 4 : 5;
-                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-                        form.dispatchEvent(new Event('submit'));
-                        return;
-                    }
-                    
-                    const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
-                    const allInputs = Array.from(document.querySelectorAll('.passage-input'));
-                    const sortedInputs = allInputs.sort((a, b) => {
-                        return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
-                    });
-                    
-                    let nextInputIndex = -1;
-                    let foundNextEmpty = false;
-                    
-                    for (let i = 0; i < sortedInputs.length; i++) {
-                        const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
-                        if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
-                            nextInputIndex = inputIndex;
-                            foundNextEmpty = true;
-                            break;
-                        }
-                    }
-                    
-                    const currentPage = "<?= $current_page ?>";
-                    
-                    if (foundNextEmpty) {
-                        form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
-                    } else {
-                        const nextPage = currentPage === "3" ? 4 : 5;
-                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-                    }
-                    
-                    form.dispatchEvent(new Event('submit'));
-                    return;
-                }
+           if (timeLeftInSeconds <= 0) {
+               clearInterval(interval);
+               
+               const activeInput = document.querySelector('.active-input');
+               if (!activeInput) {
+                   const nextPage = currentPage === "3" ? 4 : 5;
+                   form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                   form.dispatchEvent(new Event('submit'));
+                   return;
+               }
+               
+               const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
+               const allInputs = Array.from(document.querySelectorAll('.passage-input'));
+               const sortedInputs = allInputs.sort((a, b) => {
+                   return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
+               });
+               
+               let nextInputIndex = -1;
+               let foundNextEmpty = false;
+               
+               for (let i = 0; i < sortedInputs.length; i++) {
+                   const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
+                   if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
+                       nextInputIndex = inputIndex;
+                       foundNextEmpty = true;
+                       break;
+                   }
+               }
+               
+               if (foundNextEmpty) {
+                   form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+               } else {
+                   const nextPage = currentPage === "3" ? 4 : 5;
+                   form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+               }
+               
+               form.dispatchEvent(new Event('submit'));
+               return;
+           }
 
-                const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
-                const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
-                timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
-            }
-            const interval = setInterval(updateTimeLeft, 250);
-            updateTimeLeft();
-        })();
-    </script>
+           const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
+           const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
+           timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
+       }
+       const interval = setInterval(updateTimeLeft, 250);
+       updateTimeLeft();
+   })();
+</script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 
