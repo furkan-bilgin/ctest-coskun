@@ -146,19 +146,28 @@ function render_single_form($passage_id, $passage_file, $current_form)
                 // Clear local storage on the initial page
                 localStorage.clear();
             </script>
+            <style>
+                .required label::after {
+                    content: "*";
+                    padding-left: 0.25rem;
+                    color: red;
+                }
+            </style>
             <h4>Hoş Geldiniz!</h4>
             <form method="post" action="?page=2" class="mt-4">
                 <input type="hidden" name="data" />
                 <label for="participant_name">Adınız (opsiyonel)</label>
                 <input type="text" name="participant_name" placeholder="Adınız (opsiyonel)" />
                 <?php foreach ($poll_questions as $question_id => $question) { ?>
-                    <label for="<?= $question_id ?>"><?= $question['question'] ?></label>
-                    <select name="<?= $question_id ?>" id="<?= $question_id ?>" required>
-                        <option value="">Lütfen seçiniz</option>
-                        <?php foreach ($question['options'] as $option_id => $option) { ?>
-                            <option value="<?= $option_id ?>"><?= $option ?></option>
-                        <?php } ?>
-                    </select>
+                    <div class="form-group required">
+                        <label for="<?= $question_id ?>"><?= $question['question'] ?></label>
+                        <select name="<?= $question_id ?>" id="<?= $question_id ?>" required>
+                            <option value="">Lütfen seçiniz</option>
+                            <?php foreach ($question['options'] as $option_id => $option) { ?>
+                                <option value="<?= $option_id ?>"><?= $option ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
                 <?php } ?>
                 <button class="w-100">Başla</button>
             </form>
