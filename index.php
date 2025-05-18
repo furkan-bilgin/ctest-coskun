@@ -45,7 +45,7 @@ function render_single_form($passage_id, $passage_file, $current_form)
         if ($idx < $current_form) {
             $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         } else if ($idx == $current_form) {
-            $replacement = '<strong>' . $word . '</strong><input class="passage-input active-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
+            $replacement = '<strong>' . $word . '</strong><input class="passage-input active-input" type="text" autocapitalize="off" autocorrect="off" name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
         } else {
             $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         }
