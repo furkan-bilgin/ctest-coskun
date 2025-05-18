@@ -45,7 +45,7 @@ function render_single_form($passage_id, $passage_file, $current_form)
         if ($idx < $current_form) {
             $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         } else if ($idx == $current_form) {
-            $replacement = '<strong>' . $word . '</strong><input class="passage-input active-input" type="text" autocapitalize="off" autocorrect="off" name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
+            $replacement = '<strong>' . $word . '</strong><input class="passage-input active-input" type="text" autocapitalize="off" autocorrect="off" onkeypress="return event.key !== \' \'"  name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
         } else {
             $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         }
@@ -409,7 +409,7 @@ function render_single_form($passage_id, $passage_file, $current_form)
                 }
 
                 if (activeInput.value === '') {
-                    alert('Formu boş bırakmayın.');
+                    // alert('Formu boş bırakmayın.');
                     return;
                 }
 
@@ -484,6 +484,18 @@ function render_single_form($passage_id, $passage_file, $current_form)
             const interval = setInterval(updateTimeLeft, 250);
             updateTimeLeft();
         })();
+
+        window.addEventListener('beforeunload', () => {
+            // Persist scroll position
+            sessionStorage.setItem('scrollPosition', document.documentElement.scrollTop);
+        });
+        window.addEventListener('load', () => {
+            // Restore scroll position
+            const scrollPosition = sessionStorage.getItem('scrollPosition');
+            if (scrollPosition) {
+                document.documentElement.scrollTop = scrollPosition;
+            }
+        });
     </script>
 </body>
 
