@@ -29,9 +29,12 @@ function render_single_form($passage_id, $passage_file, $current_form)
         return false;
     }
 
+    echo "<div class='d-flex justify-content-between'>";
     echo "<strong>";
     echo ($current_form + 1) . " / " . $total_words;
     echo "</strong>";
+    echo '<div class="text-bg-warning rounded ps-2 text-center shadow pe-2 mb-2" style="width: 3.5rem;" data-time-left=' . ($_SESSION['end_time'] - time()) . '></div>';
+    echo "</div>";
     echo "<progress value='" . ($current_form + 1) . "' max='" . $total_words . "'></progress>";
     echo "<br>";
 
@@ -222,7 +225,6 @@ function render_single_form($passage_id, $passage_file, $current_form)
 
             $passage = file_get_contents($passages[$passage_id]);
             ?>
-            <div class="mb-4" data-time-left="<?= $_SESSION['end_time'] - time() ?>"></div>
             <form method="post">
                 <input type="hidden" name="data" />
 
@@ -411,7 +413,7 @@ function render_single_form($passage_id, $passage_file, $current_form)
                     }
                 }
 
-                if (activeInput.value === '') {
+                if (activeInput.value === '' && timeLeftInSeconds > 0) {
                     // alert('Formu boş bırakmayın.');
                     return;
                 }
@@ -420,11 +422,15 @@ function render_single_form($passage_id, $passage_file, $current_form)
                 passageFormData = Object.assign(passageFormData, Object.fromEntries(data.entries()));
                 localStorage.setItem('passageFormData', JSON.stringify(passageFormData));
 
-                if (foundNextEmpty) {
-                    form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+                if (timeLeftInSeconds > 0) {
+                    if (foundNextEmpty) {
+                        form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
+                    } else {
+                        const nextPage = currentPage === "3" ? 4 : 5;
+                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                    }
                 } else {
-                    const nextPage = currentPage === "3" ? 4 : 5;
-                    form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
+                    form.action = "?page=5";
                 }
 
                 document.querySelector('input[name="data"]').value = JSON.stringify(passageFormData);
@@ -442,47 +448,13 @@ function render_single_form($passage_id, $passage_file, $current_form)
 
                 if (timeLeftInSeconds <= 0) {
                     clearInterval(interval);
-
-                    const activeInput = document.querySelector('.active-input');
-                    if (!activeInput) {
-                        const nextPage = currentPage === "3" ? 4 : 5;
-                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-                        form.dispatchEvent(new Event('submit'));
-                        return;
-                    }
-
-                    const currentInputIndex = parseInt(activeInput.dataset.inputIndex);
-                    const allInputs = Array.from(document.querySelectorAll('.passage-input'));
-                    const sortedInputs = allInputs.sort((a, b) => {
-                        return parseInt(a.dataset.inputIndex) - parseInt(b.dataset.inputIndex);
-                    });
-
-                    let nextInputIndex = -1;
-                    let foundNextEmpty = false;
-
-                    for (let i = 0; i < sortedInputs.length; i++) {
-                        const inputIndex = parseInt(sortedInputs[i].dataset.inputIndex);
-                        if (inputIndex > currentInputIndex && !sortedInputs[i].value) {
-                            nextInputIndex = inputIndex;
-                            foundNextEmpty = true;
-                            break;
-                        }
-                    }
-
-                    if (foundNextEmpty) {
-                        form.action = '?page=' + currentPage + '&form=' + nextInputIndex;
-                    } else {
-                        const nextPage = currentPage === "3" ? 4 : 5;
-                        form.action = '?page=' + nextPage + (nextPage < 5 ? '&form=0' : '');
-                    }
-
                     form.dispatchEvent(new Event('submit'));
                     return;
                 }
 
                 const diffInMinutes = Math.floor(timeLeftInSeconds / 60);
                 const diffInSeconds = Math.floor(timeLeftInSeconds % 60);
-                timeLeft.innerHTML = `<strong>Kalan Süre:</strong> ${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
+                timeLeft.innerHTML = `${diffInMinutes}:${diffInSeconds < 10 ? '0' : ''}${diffInSeconds}`;
             }
             const interval = setInterval(updateTimeLeft, 250);
             updateTimeLeft();
