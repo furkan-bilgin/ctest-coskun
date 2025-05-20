@@ -45,7 +45,10 @@ function render_single_form($passage_id, $passage_file, $current_form)
         if ($idx < $current_form) {
             $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         } else if ($idx == $current_form) {
-            $replacement = '<strong>' . $word . '</strong><input class="passage-input active-input" type="text" autocapitalize="off" autocorrect="off" onkeypress="return event.key !== \' \'"  name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
+            $replacement = '<strong>' . $word . '</strong>';
+            $replacement .= '<input class="passage-input active-input" type="text" autocapitalize="off" autocorrect="off"';
+            $replacement .= ' onchange="this.value = this.value.replaceAll(\' \', \'\')" onkeypress="return event.key !== \' \'"';
+            $replacement .= ' name="passage[' . $passage_id . '][' . $idx . ']" required autofocus data-input-index="' . $idx . '">';
         } else {
             $replacement = '<strong>' . $word . '</strong><input class="passage-input" type="text" name="passage[' . $passage_id . '][' . $idx . ']" disabled data-input-index="' . $idx . '">';
         }
