@@ -4,8 +4,7 @@ function checkTurnstile()
     $captcha = $_POST['cf-turnstile-response'];
 
     if (!$captcha) {
-        // What happens when the CAPTCHA was entered incorrectly
-        echo '<h2>Please check the the captcha form.</h2>';
+        echo '<h2>Captcha hatalı! Lütfen tekrar deneyin.</h2>';
         exit;
     }
 
